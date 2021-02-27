@@ -174,7 +174,7 @@ func main() {
 			fmt.Println("Panic:", r)
 		}
 	}()
-
+	//地址
 	m3u8URL := "https://dz3vqpme6j4gm.cloudfront.net/20200327/nhdtb-348/index.m3u8"
 	u, err := url.Parse(m3u8URL)
 	split := strings.Split(u.Path, "/")
