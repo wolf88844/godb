@@ -7,7 +7,7 @@ import (
 )
 
 func hello(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	fmt.Fprintf(w, "hello,%s!\n", p.ByName("name"))
+	_, _ = fmt.Fprintf(w, "hello,%s!\n", p.ByName("name"))
 }
 
 func main() {
@@ -16,5 +16,5 @@ func main() {
 	server := http.Server{Addr: "127.0.0.1:8080",
 		Handler: mux,
 	}
-	server.ListenAndServe()
+	_ = server.ListenAndServe()
 }
