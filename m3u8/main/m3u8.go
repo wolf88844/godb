@@ -175,7 +175,7 @@ func main() {
 		}
 	}()
 	//地址
-	m3u8URL := "https://dz3vqpme6j4gm.cloudfront.net/20200327/nhdtb-348/index.m3u8"
+	m3u8URL := "http://video2.posh-hotels.com/20210901/118tre00083/1000kb/hls/index.m3u8"
 	u, err := url.Parse(m3u8URL)
 	split := strings.Split(u.Path, "/")
 	name := split[2]
@@ -190,7 +190,7 @@ func main() {
 	}
 
 	var wg sync.WaitGroup
-	limitChan := make(chan byte, 64)
+	limitChan := make(chan byte, 32)
 	num := len(result.M3u8.Segments)
 	for idx, seg := range result.M3u8.Segments {
 		wg.Add(1)
@@ -217,44 +217,46 @@ func main() {
 
 			fullURL := tool.ResolveURL(result.URL, s.URI)
 			body, err := tool.Get(fullURL)
-			if err != nil {
+			if err != nil && !strings.Contains(err.Error(), "EOF") {
 				fmt.Printf("Download failed [%s] %s\n", err.Error(), fullURL)
 			}
-			defer body.Close()
+			if body != nil {
+				defer body.Close()
 
-			bytes, err := ioutil.ReadAll(body)
-			if err != nil {
-				fmt.Printf("Read TS file failed: %s\n", err.Error())
-				return
-			}
-			if s.Key != nil {
-				key := result.Keys[s.Key]
-				if key != "" {
-					bytes, err = tool.AES128Decrypt(bytes, []byte(key), []byte(s.Key.IV))
-					if err != nil {
-						fmt.Printf("decryt TS failed: %s\n", err.Error())
+				bytes, err := ioutil.ReadAll(body)
+				if err != nil {
+					fmt.Printf("Read TS file failed: %s\n", err.Error())
+					return
+				}
+				if s.Key != nil {
+					key := result.Keys[s.Key]
+					if key != "" {
+						bytes, err = tool.AES128Decrypt(bytes, []byte(key), []byte(s.Key.IV))
+						if err != nil {
+							fmt.Printf("decryt TS failed: %s\n", err.Error())
+						}
 					}
 				}
-			}
-			syncByte := uint8(71)
-			bLen := len(bytes)
-			for j := 0; j < bLen; j++ {
-				if bytes[j] == syncByte {
-					bytes = bytes[j:]
-					break
+				syncByte := uint8(71)
+				bLen := len(bytes)
+				for j := 0; j < bLen; j++ {
+					if bytes[j] == syncByte {
+						bytes = bytes[j:]
+						break
+					}
 				}
+				if _, err := tsFileTmp.Write(bytes); err != nil {
+					fmt.Printf("Save TS file failed:%s\n", err.Error())
+					return
+				}
+				_ = tsFileTmp.Close()
+				if err = os.Rename(tsFileTmpPath, tsFile); err != nil {
+					fmt.Printf("Rename TS file failed: %s\n", err.Error())
+					return
+				}
+				num = num - 1
+				fmt.Printf("下载成功：%s,还剩%d个\n", fullURL, num)
 			}
-			if _, err := tsFileTmp.Write(bytes); err != nil {
-				fmt.Printf("Save TS file failed:%s\n", err.Error())
-				return
-			}
-			_ = tsFileTmp.Close()
-			if err = os.Rename(tsFileTmpPath, tsFile); err != nil {
-				fmt.Printf("Rename TS file failed: %s\n", err.Error())
-				return
-			}
-			num = num - 1
-			fmt.Printf("下载成功：%s,还剩%d个\n", fullURL, num)
 
 		}(idx, seg)
 		limitChan <- 1
